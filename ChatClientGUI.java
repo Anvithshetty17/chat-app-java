@@ -19,42 +19,69 @@ public class ChatClientGUI {
     }
 
     private void setupGUI() {
-        frame = new JFrame("Chat - " + name);
-        chatArea = new JTextArea(20, 40);
+        frame = new JFrame("📨 Java RMI Chat - Logged in as: " + name);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(500, 400);
+        frame.setLayout(new BorderLayout(10, 10));
+
+        // Chat area (display)
+        chatArea = new JTextArea();
         chatArea.setEditable(false);
+        chatArea.setLineWrap(true);
+        chatArea.setWrapStyleWord(true);
+        chatArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
         JScrollPane scrollPane = new JScrollPane(chatArea);
+        scrollPane.setBorder(BorderFactory.createTitledBorder("Chat Messages"));
 
-        inputField = new JTextField(30);
+        // Input panel
+        inputField = new JTextField();
+        inputField.setFont(new Font("Arial", Font.PLAIN, 14));
+        inputField.setPreferredSize(new Dimension(300, 30));
+
         sendButton = new JButton("Send");
+        sendButton.setBackground(new Color(30, 144, 255));
+        sendButton.setForeground(Color.WHITE);
+        sendButton.setFont(new Font("Arial", Font.BOLD, 14));
+        sendButton.setFocusPainted(false);
 
-        JPanel panel = new JPanel();
-        panel.add(inputField);
-        panel.add(sendButton);
+        JPanel inputPanel = new JPanel(new BorderLayout(5, 5));
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
+        inputPanel.add(inputField, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
 
-        frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
-        frame.getContentPane().add(panel, BorderLayout.SOUTH);
+        frame.add(scrollPane, BorderLayout.CENTER);
+        frame.add(inputPanel, BorderLayout.SOUTH);
+        frame.setLocationRelativeTo(null); // center on screen
+        frame.setVisible(true);
 
+        // Event listeners
         sendButton.addActionListener(e -> sendMessage());
         inputField.addActionListener(e -> sendMessage());
-
-        frame.pack();
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setVisible(true);
     }
 
     private void connectToServer() {
         try {
+            String serverIP = JOptionPane.showInputDialog(frame, "Enter Server IP Address:", "localhost");
+            if (serverIP == null || serverIP.trim().isEmpty()) {
+                throw new Exception("No server IP provided");
+            }
+
             client = new ChatClientImpl(name, this);
-            server = (ChatServer) Naming.lookup("rmi://localhost/ChatServer");
+            server = (ChatServer) Naming.lookup("rmi://" + serverIP.trim() + "/ChatServer");
             server.registerClient(client, name);
         } catch (Exception e) {
+            JOptionPane.showMessageDialog(frame, "Error connecting to server:\n" + e.getMessage(),
+                    "Connection Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "Failed to connect to server.");
+            System.exit(0);
         }
     }
 
     public void displayMessage(String message) {
-        chatArea.append(message + "\n");
+        SwingUtilities.invokeLater(() -> {
+            chatArea.append(message + "\n");
+            chatArea.setCaretPosition(chatArea.getDocument().getLength()); // scroll to bottom
+        });
     }
 
     private void sendMessage() {
@@ -64,7 +91,7 @@ public class ChatClientGUI {
                 server.broadcastMessage(name + ": " + message);
                 inputField.setText("");
             } catch (Exception e) {
-                e.printStackTrace();
+                displayMessage("Failed to send message: " + e.getMessage());
             }
         }
     }
